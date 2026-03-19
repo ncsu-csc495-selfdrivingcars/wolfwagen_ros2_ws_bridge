@@ -18,7 +18,7 @@ browser over WebSocket. No ROS needed on the viewing machine.
 ## Files
 
 ```
-ros2_ws_bridge/
+wolfwagen_ros2_ws_bridge/
 ├── ros2_ws_bridge.py      # ROS2 node + WebSocket server (runs on robot)
 ├── web_ui/
 │   └── index.html         # Browser dashboard (runs on laptop)
