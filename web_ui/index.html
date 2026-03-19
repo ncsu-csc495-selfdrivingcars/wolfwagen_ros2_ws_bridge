@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Robot Monitor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-card: #16161f;
+    --bg-card-hover: #1c1c28;
+    --border: #2a2a3a;
+    --border-active: #4a4a6a;
+    --text-primary: #e8e8f0;
+    --text-secondary: #8888a8;
+    --text-dim: #55556a;
+    --accent-cyan: #00d4ff;
+    --accent-green: #00ff88;
+    --accent-orange: #ff8844;
+    --accent-red: #ff4466;
+    --accent-purple: #aa66ff;
+    --glow-cyan: rgba(0, 212, 255, 0.15);
+    --glow-green: rgba(0, 255, 136, 0.15);
+    --glow-red: rgba(255, 68, 102, 0.15);
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: 'Outfit', sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    overflow: hidden;
+  }
+
+  /* ---- Layout ---- */
+  .app {
+    display: grid;
+    grid-template-rows: 52px 1fr;
+    height: 100vh;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+  }
+
+  .logo-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent-red);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+
+  .logo-dot.connected {
+    background: var(--accent-green);
+    box-shadow: 0 0 8px var(--accent-green);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .status-pill {
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: var(--glow-red);
+    color: var(--accent-red);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s;
+  }
+
+  .status-pill.connected {
+    background: var(--glow-green);
+    color: var(--accent-green);
+  }
+
+  /* ---- Main Grid ---- */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    grid-template-rows: 1fr 1fr;
+    gap: 2px;
+    background: var(--border);
+  }
+
+  .panel {
+    background: var(--bg-primary);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-header .tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-dim);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* ---- Camera Panel ---- */
+  .camera-panel {
+    grid-row: 1 / 3;
+  }
+
+  .camera-panel canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .camera-overlay {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .camera-badge {
+    padding: 4px 10px;
+    background: rgba(0,0,0,0.7);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    backdrop-filter: blur(8px);
+  }
+
+  .camera-badge.live {
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+  }
+
+  .no-signal {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    gap: 8px;
+  }
+
+  .no-signal svg { opacity: 0.3; }
+
+  /* ---- Pose Panel ---- */
+  .pose-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2px;
+    padding: 2px;
+    height: calc(100% - 37px);
+  }
+
+  .pose-cell {
+    background: var(--bg-secondary);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .pose-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .pose-value {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 300;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+  }
+
+  .pose-value.x { color: var(--accent-red); }
+  .pose-value.y { color: var(--accent-green); }
+  .pose-value.z { color: var(--accent-cyan); }
+
+  .pose-unit {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-left: 4px;
+    font-weight: 400;
+  }
+
+  /* ---- Trajectory (3D) Panel ---- */
+  .trajectory-panel canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .traj-controls {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    gap: 6px;
+  }
+
+  .traj-btn {
+    width: 32px; height: 32px;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,0.6);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-family: var(--font-mono);
+    backdrop-filter: blur(8px);
+    transition: all 0.15s;
+  }
+
+  .traj-btn:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+  }
+
+  /* ---- Connection Modal ---- */
+  .connect-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .connect-bar input {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .connect-bar input:focus {
+    border-color: var(--accent-cyan);
+  }
+
+  .connect-bar button {
+    padding: 8px 20px;
+    background: var(--accent-cyan);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: 6px;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .connect-bar button:hover { opacity: 0.85; }
+
+  .connect-bar .disconnect-btn {
+    background: transparent;
+    color: var(--accent-red);
+    border: 1px solid var(--accent-red);
+  }
+
+  .hidden { display: none !important; }
+
+  /* ---- FPS counter ---- */
+  .fps-display {
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  /* ---- Scrollbar ---- */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 900px) {
+    .main {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr auto auto;
+    }
+    .camera-panel { grid-row: auto; min-height: 300px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-dot" id="logoDot"></div>
+      <span>WolfWagen Monitor</span>
+    </div>
+    <div class="header-right">
+      <span class="fps-display" id="fpsDisplay">-- fps</span>
+      <span id="latencyDisplay">-- ms</span>
+      <span class="status-pill" id="statusPill">DISCONNECTED</span>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Camera Feed -->
+    <div class="panel camera-panel" id="cameraPanel">
+      <div class="panel-header">
+        <span>Camera Feed</span>
+        <span class="tag" id="imageResTag">--</span>
+      </div>
+      <canvas id="cameraCanvas"></canvas>
+      <div class="no-signal" id="noSignal">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>No video signal</span>
+      </div>
+      <div class="camera-overlay" id="cameraOverlay" style="display:none">
+        <div class="camera-badge live">● LIVE</div>
+        <div class="camera-badge" id="imgFpsBadge">-- fps</div>
+      </div>
+    </div>
+
+    <!-- Pose Data -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>Pose</span>
+        <span class="tag" id="poseFrameTag">--</span>
+      </div>
+      <div class="pose-grid">
+        <div class="pose-cell">
+          <div class="pose-label">Position X</div>
+          <div class="pose-value x" id="px">--<span class="pose-unit">m</span></div>
+        </div>
+        <div class="pose-cell">
+          <div class="pose-label">Position Y</div>
+          <div class="pose-value y" id="py">--<span class="pose-unit">m</span></div>
+        </div>
+        <div class="pose-cell">
+          <div class="pose-label">Position Z</div>
+          <div class="pose-value z" id="pz">--<span class="pose-unit">m</span></div>
+        </div>
+        <div class="pose-cell">
+          <div class="pose-label">Roll</div>
+          <div class="pose-value x" id="eRoll">--<span class="pose-unit">°</span></div>
+        </div>
+        <div class="pose-cell">
+          <div class="pose-label">Pitch</div>
+          <div class="pose-value y" id="ePitch">--<span class="pose-unit">°</span></div>
+        </div>
+        <div class="pose-cell">
+          <div class="pose-label">Yaw</div>
+          <div class="pose-value z" id="eYaw">--<span class="pose-unit">°</span></div>
+        </div>
+        <div class="pose-cell" style="grid-column: 1 / -1">
+          <div class="pose-label">Timestamp</div>
+          <div class="pose-value" id="pts" style="font-size:14px;color:var(--text-secondary)">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3D Trajectory -->
+    <div class="panel trajectory-panel">
+      <div class="panel-header">
+        <span>Trajectory</span>
+        <span class="tag" id="trajPointsTag">0 pts</span>
+      </div>
+      <canvas id="trajCanvas"></canvas>
+      <div class="traj-controls">
+        <button class="traj-btn" id="trajReset" title="Clear trajectory">✕</button>
+        <button class="traj-btn" id="trajTop" title="Top-down view">⊤</button>
+        <button class="traj-btn" id="trajSide" title="Side view">⊣</button>
+        <button class="traj-btn" id="traj3d" title="3D perspective">◇</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Connection Bar (overlay) -->
+<div class="connect-bar" id="connectBar">
+  <span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">ws://</span>
+  <input type="text" id="hostInput" placeholder="ROBOT_IP:8765" value="">
+  <button id="connectBtn">Connect</button>
+  <button class="disconnect-btn hidden" id="disconnectBtn">Disconnect</button>
+</div>
+
+<script>
+// =========================================================================
+//  State
+// =========================================================================
+let ws = null;
+let connected = false;
+
+// FPS tracking
+const fpsTracker = { poses: [], images: [], lastPoseTime: 0, lastImgTime: 0 };
+
+// Trajectory buffer
+const MAX_TRAJ_POINTS = 5000;
+let trajPoints = [];   // [{x, y, z}, ...]
+
+// Camera
+let lastImageBlob = null;
+
+// =========================================================================
+//  DOM refs
+// =========================================================================
+const $ = id => document.getElementById(id);
+const logoDot = $('logoDot');
+const statusPill = $('statusPill');
+const fpsDisplay = $('fpsDisplay');
+const latencyDisplay = $('latencyDisplay');
+const cameraCanvas = $('cameraCanvas');
+const cameraCtx = cameraCanvas.getContext('2d');
+const noSignal = $('noSignal');
+const cameraOverlay = $('cameraOverlay');
+const imgFpsBadge = $('imgFpsBadge');
+const imageResTag = $('imageResTag');
+const trajCanvas = $('trajCanvas');
+const trajCtx = trajCanvas.getContext('2d');
+const trajPointsTag = $('trajPointsTag');
+const poseFrameTag = $('poseFrameTag');
+const connectBar = $('connectBar');
+const hostInput = $('hostInput');
+const connectBtn = $('connectBtn');
+const disconnectBtn = $('disconnectBtn');
+
+// =========================================================================
+//  Connection
+// =========================================================================
+function connect() {
+  const host = hostInput.value.trim();
+  if (!host) return;
+
+  // Save for next visit
+  localStorage.setItem('robot_ws_host', host);
+
+  if (ws) ws.close();
+
+  ws = new WebSocket(`ws://${host}`);
+  ws.binaryType = 'blob';   // images come as binary
+
+  ws.onopen = () => {
+    connected = true;
+    setConnectedUI(true);
+    console.log('[WS] Connected');
+  };
+
+  ws.onclose = () => {
+    connected = false;
+    setConnectedUI(false);
+    console.log('[WS] Disconnected');
+    // Auto-reconnect after 2s
+    setTimeout(() => {
+      if (!connected && hostInput.value.trim()) connect();
+    }, 2000);
+  };
+
+  ws.onerror = (e) => {
+    console.error('[WS] Error', e);
+  };
+
+  ws.onmessage = (event) => {
+    if (event.data instanceof Blob) {
+      handleImageBlob(event.data);
+    } else {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'pose') handlePose(msg);
+      } catch(e) {}
+    }
+  };
+}
+
+function disconnect() {
+  if (ws) { ws.close(); ws = null; }
+  connected = false;
+  setConnectedUI(false);
+}
+
+function setConnectedUI(on) {
+  logoDot.classList.toggle('connected', on);
+  statusPill.classList.toggle('connected', on);
+  statusPill.textContent = on ? 'CONNECTED' : 'DISCONNECTED';
+  connectBtn.classList.toggle('hidden', on);
+  disconnectBtn.classList.toggle('hidden', !on);
+}
+
+// Restore saved host
+const savedHost = localStorage.getItem('robot_ws_host');
+if (savedHost) hostInput.value = savedHost;
+
+connectBtn.addEventListener('click', connect);
+disconnectBtn.addEventListener('click', disconnect);
+hostInput.addEventListener('keydown', e => { if (e.key === 'Enter') connect(); });
+
+
+// =========================================================================
+//  Quaternion → Euler Angles (Roll, Pitch, Yaw in degrees)
+//  Convention: ZYX intrinsic (same as ROS tf2 / REP-103)
+// =========================================================================
+function quatToEuler(qx, qy, qz, qw) {
+  // Roll (X)
+  const sinr_cosp = 2.0 * (qw * qx + qy * qz);
+  const cosr_cosp = 1.0 - 2.0 * (qx * qx + qy * qy);
+  const roll = Math.atan2(sinr_cosp, cosr_cosp);
+
+  // Pitch (Y) — clamp to avoid NaN at gimbal lock
+  const sinp = 2.0 * (qw * qy - qz * qx);
+  let pitch;
+  if (Math.abs(sinp) >= 1.0) {
+    pitch = Math.sign(sinp) * (Math.PI / 2);  // ±90°
+  } else {
+    pitch = Math.asin(sinp);
+  }
+
+  // Yaw (Z)
+  const siny_cosp = 2.0 * (qw * qz + qx * qy);
+  const cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz);
+  const yaw = Math.atan2(siny_cosp, cosy_cosp);
+
+  const RAD2DEG = 180.0 / Math.PI;
+  return { roll: roll * RAD2DEG, pitch: pitch * RAD2DEG, yaw: yaw * RAD2DEG };
+}
+
+
+// =========================================================================
+//  Pose Handler
+// =========================================================================
+function handlePose(msg) {
+  const p = msg.position;
+  const o = msg.orientation;
+
+  $('px').innerHTML = p.x.toFixed(3) + '<span class="pose-unit">m</span>';
+  $('py').innerHTML = p.y.toFixed(3) + '<span class="pose-unit">m</span>';
+  $('pz').innerHTML = p.z.toFixed(3) + '<span class="pose-unit">m</span>';
+
+  // Quaternion → Euler (ZYX intrinsic = XYZ extrinsic convention)
+  const euler = quatToEuler(o.x, o.y, o.z, o.w);
+  $('eRoll').innerHTML  = euler.roll.toFixed(2)  + '<span class="pose-unit">°</span>';
+  $('ePitch').innerHTML = euler.pitch.toFixed(2) + '<span class="pose-unit">°</span>';
+  $('eYaw').innerHTML   = euler.yaw.toFixed(2)   + '<span class="pose-unit">°</span>';
+
+  if (msg.ts) {
+    const d = new Date(msg.ts * 1000);
+    $('pts').textContent = d.toLocaleTimeString() + '.' + String(d.getMilliseconds()).padStart(3, '0');
+  }
+  if (msg.frame) {
+    poseFrameTag.textContent = msg.frame;
+  }
+
+  // Trajectory
+  trajPoints.push({ x: p.x, y: p.y, z: p.z });
+  if (trajPoints.length > MAX_TRAJ_POINTS) trajPoints.shift();
+  trajPointsTag.textContent = trajPoints.length + ' pts';
+
+  // FPS
+  const now = performance.now();
+  fpsTracker.poses.push(now);
+  while (fpsTracker.poses.length > 0 && fpsTracker.poses[0] < now - 1000) fpsTracker.poses.shift();
+}
+
+
+// =========================================================================
+//  Image Handler (binary blob → canvas)
+// =========================================================================
+function handleImageBlob(blob) {
+  const url = URL.createObjectURL(blob);
+  const img = new window.Image();
+  img.onload = () => {
+    // Resize canvas to container
+    const rect = cameraCanvas.parentElement.getBoundingClientRect();
+    const headerH = 37; // panel header height
+    const cw = rect.width;
+    const ch = rect.height - headerH;
+    cameraCanvas.width = cw * devicePixelRatio;
+    cameraCanvas.height = ch * devicePixelRatio;
+    cameraCanvas.style.width = cw + 'px';
+    cameraCanvas.style.height = ch + 'px';
+    cameraCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+
+    // Draw image scaled to fit
+    const scale = Math.min(cw / img.width, ch / img.height);
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = (cw - dw) / 2;
+    const dy = (ch - dh) / 2;
+    cameraCtx.fillStyle = '#000';
+    cameraCtx.fillRect(0, 0, cw, ch);
+    cameraCtx.drawImage(img, dx, dy, dw, dh);
+
+    URL.revokeObjectURL(url);
+
+    imageResTag.textContent = `${img.width}×${img.height}`;
+    noSignal.style.display = 'none';
+    cameraOverlay.style.display = 'flex';
+  };
+  img.src = url;
+
+  // FPS
+  const now = performance.now();
+  fpsTracker.images.push(now);
+  while (fpsTracker.images.length > 0 && fpsTracker.images[0] < now - 1000) fpsTracker.images.shift();
+}
+
+
+// =========================================================================
+//  3D Trajectory Renderer (pure Canvas 2D with simple projection)
+// =========================================================================
+let trajView = '3d';  // 'top', 'side', '3d'
+let trajRotation = 0;
+
+$('trajReset').addEventListener('click', () => { trajPoints = []; });
+$('trajTop').addEventListener('click', () => { trajView = 'top'; });
+$('trajSide').addEventListener('click', () => { trajView = 'side'; });
+$('traj3d').addEventListener('click', () => { trajView = '3d'; });
+
+function drawTrajectory() {
+  const parent = trajCanvas.parentElement;
+  const rect = parent.getBoundingClientRect();
+  const headerH = 37;
+  const w = rect.width;
+  const h = rect.height - headerH;
+
+  trajCanvas.width = w * devicePixelRatio;
+  trajCanvas.height = h * devicePixelRatio;
+  trajCanvas.style.width = w + 'px';
+  trajCanvas.style.height = h + 'px';
+  trajCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+
+  // Background
+  trajCtx.fillStyle = '#0a0a0f';
+  trajCtx.fillRect(0, 0, w, h);
+
+  if (trajPoints.length === 0) {
+    trajCtx.fillStyle = '#55556a';
+    trajCtx.font = '12px JetBrains Mono';
+    trajCtx.textAlign = 'center';
+    trajCtx.fillText('Waiting for pose data...', w/2, h/2);
+    return;
+  }
+
+  // Compute bounding box
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+
+  const projected = trajPoints.map(p => {
+    let px, py;
+    if (trajView === 'top') {
+      px = p.x; py = -p.y;  // X-Y plane (top down)
+    } else if (trajView === 'side') {
+      px = p.x; py = -p.z;  // X-Z plane (side)
+    } else {
+      // Simple isometric-ish 3D
+      const angle = trajRotation;
+      const cos = Math.cos(angle), sin = Math.sin(angle);
+      const rx = p.x * cos - p.y * sin;
+      const ry = p.x * sin + p.y * cos;
+      px = rx;
+      py = -p.z * 0.8 - ry * 0.4;
+    }
+    if (px < minX) minX = px; if (px > maxX) maxX = px;
+    if (py < minY) minY = py; if (py > maxY) maxY = py;
+    return { px, py };
+  });
+
+  // Add some padding
+  const rangeX = (maxX - minX) || 1;
+  const rangeY = (maxY - minY) || 1;
+  const pad = 60;
+  const scaleX = (w - pad * 2) / rangeX;
+  const scaleY = (h - pad * 2) / rangeY;
+  const scale = Math.min(scaleX, scaleY);
+  const cx = w / 2;
+  const cy = h / 2;
+  const midX = (minX + maxX) / 2;
+  const midY = (minY + maxY) / 2;
+
+  function toScreen(px, py) {
+    return {
+      sx: cx + (px - midX) * scale,
+      sy: cy + (py - midY) * scale
+    };
+  }
+
+  // Draw grid
+  trajCtx.strokeStyle = '#1a1a28';
+  trajCtx.lineWidth = 1;
+  const gridStep = computeGridStep(rangeX, rangeY, scale);
+  if (gridStep > 0) {
+    const gMinX = Math.floor(minX / gridStep) * gridStep;
+    const gMaxX = Math.ceil(maxX / gridStep) * gridStep;
+    const gMinY = Math.floor(minY / gridStep) * gridStep;
+    const gMaxY = Math.ceil(maxY / gridStep) * gridStep;
+    trajCtx.beginPath();
+    for (let gx = gMinX; gx <= gMaxX; gx += gridStep) {
+      const s1 = toScreen(gx, minY);
+      const s2 = toScreen(gx, maxY);
+      trajCtx.moveTo(s1.sx, s1.sy); trajCtx.lineTo(s2.sx, s2.sy);
+    }
+    for (let gy = gMinY; gy <= gMaxY; gy += gridStep) {
+      const s1 = toScreen(minX, gy);
+      const s2 = toScreen(maxX, gy);
+      trajCtx.moveTo(s1.sx, s1.sy); trajCtx.lineTo(s2.sx, s2.sy);
+    }
+    trajCtx.stroke();
+  }
+
+  // Draw path
+  trajCtx.lineWidth = 2;
+  trajCtx.lineCap = 'round';
+  trajCtx.lineJoin = 'round';
+
+  for (let i = 1; i < projected.length; i++) {
+    const a = toScreen(projected[i-1].px, projected[i-1].py);
+    const b = toScreen(projected[i].px, projected[i].py);
+    const t = i / projected.length;
+    trajCtx.strokeStyle = `rgba(0, 212, 255, ${0.15 + t * 0.85})`;
+    trajCtx.beginPath();
+    trajCtx.moveTo(a.sx, a.sy);
+    trajCtx.lineTo(b.sx, b.sy);
+    trajCtx.stroke();
+  }
+
+  // Draw current position marker
+  if (projected.length > 0) {
+    const last = projected[projected.length - 1];
+    const s = toScreen(last.px, last.py);
+
+    // Glow
+    const grd = trajCtx.createRadialGradient(s.sx, s.sy, 0, s.sx, s.sy, 20);
+    grd.addColorStop(0, 'rgba(0, 212, 255, 0.4)');
+    grd.addColorStop(1, 'rgba(0, 212, 255, 0)');
+    trajCtx.fillStyle = grd;
+    trajCtx.fillRect(s.sx - 20, s.sy - 20, 40, 40);
+
+    // Dot
+    trajCtx.beginPath();
+    trajCtx.arc(s.sx, s.sy, 5, 0, Math.PI * 2);
+    trajCtx.fillStyle = '#00d4ff';
+    trajCtx.fill();
+
+    // Coords label
+    const p = trajPoints[trajPoints.length - 1];
+    trajCtx.font = '11px JetBrains Mono';
+    trajCtx.fillStyle = '#8888a8';
+    trajCtx.textAlign = 'left';
+    trajCtx.fillText(
+      `(${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`,
+      s.sx + 12, s.sy + 4
+    );
+  }
+
+  // View label
+  const viewLabels = { top: 'TOP (XY)', side: 'SIDE (XZ)', '3d': '3D' };
+  trajCtx.font = '10px JetBrains Mono';
+  trajCtx.fillStyle = '#55556a';
+  trajCtx.textAlign = 'left';
+  trajCtx.fillText(viewLabels[trajView], 12, h - 10);
+
+  // Slowly rotate 3D view
+  if (trajView === '3d') {
+    trajRotation += 0.002;
+  }
+}
+
+function computeGridStep(rangeX, rangeY, scale) {
+  const maxRange = Math.max(rangeX, rangeY);
+  if (maxRange === 0) return 0;
+  const rawStep = maxRange / 6;
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const norm = rawStep / mag;
+  if (norm < 1.5) return mag;
+  if (norm < 3.5) return 2 * mag;
+  if (norm < 7.5) return 5 * mag;
+  return 10 * mag;
+}
+
+
+// =========================================================================
+//  Update Loop
+// =========================================================================
+function updateUI() {
+  // FPS display
+  const poseFps = fpsTracker.poses.length;
+  const imgFps = fpsTracker.images.length;
+  fpsDisplay.textContent = `P:${poseFps} I:${imgFps} fps`;
+  imgFpsBadge.textContent = imgFps + ' fps';
+
+  // Draw trajectory
+  drawTrajectory();
+
+  requestAnimationFrame(updateUI);
+}
+
+requestAnimationFrame(updateUI);
+</script>
+</body>
+</html>
+
