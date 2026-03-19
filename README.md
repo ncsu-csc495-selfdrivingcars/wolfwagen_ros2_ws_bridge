@@ -45,18 +45,19 @@ The bridge will:
 
 ### Laptop side
 
-**Option A — Use the built-in HTTP server (easiest)**
+**Option A — Open the HTML file directly (easiest)**
+
+Copy `web_ui/index.html` to your laptop and open it in any modern browser.
+Then type the robot's IP and port (e.g. `192.168.1.100:8765`) in the
+connection bar and click Connect.
+
+**Option B — Use the built-in HTTP server**
 
 Open a browser and go to:
 ```
 http://ROBOT_IP:8080
 ```
 
-**Option B — Open the HTML file directly**
-
-Copy `web_ui/index.html` to your laptop and open it in any modern browser.
-Then type the robot's IP and port (e.g. `192.168.1.100:8765`) in the
-connection bar and click Connect.
 
 ## Configuration
 
